@@ -7,28 +7,65 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  PDF_DIR: "pdf-dir"
+  PDF_ARTIFACT_NAME: "pdfs-artifact"
+  WEBPAGE_DIR: "webpage-dir"
+  BUILD_WEBPAGE_SCRIPT: "scripts/build-webpage.sh"
+
+
 jobs:
-  build:
-    name: Build PDFs
+  build-documents:
+    name: Compile PDF Documents
     runs-on: ubuntu-latest
     container: texlive/texlive:latest
     steps:
-      - uses: actions/checkout@v4
-      - run: for f in */*.tex; do latexmk -pdf -cd -outdir=build "$f"; done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/checkout@v7
+      - run: for f in */*.tex; do latexmk -pdf -cd -outdir=build -interaction=nonstopmode -halt-on-error "$f"; done
+      - uses: actions/upload-artifact@v7
         with:
-          name: build-folder
-          path: ./**/build
+          name: ${{ env.PDF_ARTIFACT_NAME }}
+          path: "*/build/*.pdf"
           if-no-files-found: error
           retention-days: 1
 
-  upload:
-    name: Upload PDFs
+  build-webpage:
+    name: Build Webpage
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-documents
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7 # the build webpage script is in here
+      - uses: actions/download-artifact@v8
         with:
-          name: build-folder
-          path: build
-      - run: ls -l build
+          name: ${{ env.PDF_ARTIFACT_NAME }}
+          path: ${{ env.PDF_DIR }}
+      - run: bash ${{ env.BUILD_WEBPAGE_SCRIPT }} ${{ env.PDF_DIR }} ${{ env.WEBPAGE_DIR }}
+      - run: ls -l ${{ env.PDF_DIR }}
+      - run: ls -l ${{ env.WEBPAGE_DIR }}
+      - name: Upload Webpage Artifact
+        uses: actions/upload-pages-artifact@v5 # or specific "vX.X.X" version tag for this action
+        with:
+          path: ${{ env.WEBPAGE_DIR }}
+          # artifact has default name
+
+  deploy-webpage:
+    name: Deploy Webpage
+    needs: build-webpage
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
