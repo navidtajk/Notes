@@ -326,7 +326,7 @@ contradiction. Therefore, the recursion does terminate after $\bigO{\log
 
 Recall that our scaling algorithm required an initial upper bound $\Delta$ on
 the diameter of $G = G_\half$. Where does this come from, and why can't it be
-too small? First observe that we can cap edge lengths at $2n$ in $G_0$. A
+exponential? First observe that we can cap edge lengths at $2n$ in $G_0$. A
 potential that neutralizes lower weights neutralizes all higher weights as well,
 so the returned $\varphi$ still has $\len_\varphi \geq 0$. We also do not
 introduce any negative cycles in $G_0$---a simple cycle has at most $n$ negative
@@ -384,9 +384,9 @@ is a joke.}
   In fact, the computation that is done in this sped up algorithm is almost
   exactly the same as in the old algorithm. In particular, edges are cut in the
   same way, since the recursive calls with the same $\Delta$ would begin by
-  performing an LDD with $\Delta/2$, which is exactly what the old LDD did. The
-  only difference is that the old algorithm cleaned up all these edges in one
-  shot, while the new one does them in stages.
+  performing a decomposition with the same parameter $\Delta$, which is exactly
+  what the recursive LDD did. The only difference is that the old algorithm
+  cleaned up all these edges in one shot, while the new one does them in stages.
 \end{remark}
 
 \printbibliography

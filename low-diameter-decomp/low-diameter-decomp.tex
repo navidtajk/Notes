@@ -30,6 +30,9 @@ When $G$ is directed, we have the in-ball and out-ball, defined respectively as
   \outball{s, r} & \defeq \Set{v \in V \mid d(s, v) \leq r}.
 \end{align*}
 
+A ball $B$ can be computed in $\bigO{\sum_{u \in B}\outdeg{u}}$ time via a
+truncated Dijkstra's algorithm.
+
 \section{Undirected LDDs}
 
 \begin{definition}
