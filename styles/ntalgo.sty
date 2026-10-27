@@ -1,0 +1,144 @@
+% badness-format skip-file: Hand-arranged
+\RequirePackage{xparse}
+\RequirePackage{mleftright}
+\RequirePackage{amsthm}
+\RequirePackage{framed}
+\RequirePackage{qtree}
+\RequirePackage{graphicx}
+\RequirePackage[dvipsnames]{xcolor}
+\RequirePackage[hidelinks]{hyperref}
+\RequirePackage{amsfonts}
+\RequirePackage{amsmath}
+\RequirePackage{amssymb}
+\RequirePackage{mathrsfs}
+\RequirePackage{mathtools}
+
+% Theorems and such
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Def}
+
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+
+\theoremstyle{remark}
+\newtheorem*{nudge}{Nudge} % To get the reader to think, but not literally an exercise
+
+% badness-format skip
+\newenvironment{algo}
+{
+  \begin{tabular}{|l|}
+    \hline
+    \begin{minipage}{1in}
+      \begin{tabbing}
+        \quad\=\qquad\=\qquad\=\qquad\=\qquad\=\qquad\=\qquad\=\qquad\=\qquad\=\qquad\=\qquad\=\qquad\=\qquad\=\kill
+          }{
+      \end{tabbing}
+    \end{minipage}
+    \\\hline
+  \end{tabular}
+}
+\newenvironment{centeralgo}{\begin{center}\begin{algo}}{\end{algo}\end{center}}
+
+\def\Comment#1{\textsf{\textsl{\textcolor{BrickRed}{$\langle\!\langle$#1\/$\rangle\!\rangle$}}}}
+
+% Basic stuff
+\def\defeq{\overset{\text{def}}{=}}
+\def\ddx{\frac{d}{dx}}
+\def\d#1{\ensuremath{\operatorname{d}\!{#1}}}
+
+\def\eps{\varepsilon}
+\def\Cdot{\mathbin{\text{\normalfont \textbullet}}}
+\let\oldemptyset\emptyset
+\let\emptyset\varnothing
+
+
+% Sets
+\def\Z{\mathbb{Z}}
+\def\R{\mathbb{R}}
+\def\Q{\mathbb{Q}}
+\def\N{\mathbb{N}}
+\def\C{\mathbb{C}}
+
+% Delimiters
+\def\paren#1{\mleft(#1\mright)}
+\def\brack#1{\mleft[#1\mright]}
+\def\brace#1{\mleft\{#1\mright\}}
+\def\anglebrack#1{\mleft\langle #1 \mright\rangle}
+\def\bars#1{\mleft|#1\mright|}
+\def\floor#1{\mleft\lfloor#1\mright\rfloor}
+\def\ceil#1{\mleft\lceil #1 \mright\rceil}
+
+% Semantic aliases
+\def\Set#1{\brace{#1}}
+\def\sizeof#1{\bars{#1}}
+
+% Convenience
+\def\prac#1#2{\paren{\frac{#1}{#2}}}
+
+%%%% Algo functions %%%%
+\def\bigO#1{O\paren{#1}}
+\def\bigTheta#1{\Theta\paren{#1}}
+\def\bigOmega#1{\Omega\paren{#1}}
+\def\apxO#1{\widetilde{O}\paren{#1}}
+
+\def\poly{\text{poly}}
+
+%%%% Graphs %%%%
+\def\cut#1{\partial\paren{#1}}
+\def\outcut#1{\partial^+\paren{#1}}
+\def\incut#1{\partial^-\paren{#1}}
+\def\ball#1{B\paren{#1}}
+\def\inball#1{B^-\paren{#1}}
+\def\outball#1{B^+\paren{#1}}
+\def\inoutball#1{B^\pm\paren{#1}}
+% \def\dist#1{d\paren{#1}}
+\NewDocumentCommand{\len}{e{_} g e{_}}{%
+  \ell%
+  \IfValueTF{#1}{_{#1}}{%
+    \IfValueT{#3}{_{#3}}%
+  }%
+  \IfValueT{#2}{\paren{#2}}%
+}
+\NewDocumentCommand{\dist}{e{_} g e{_}}{%
+  d%
+  \IfValueTF{#1}{_{#1}}{%
+    \IfValueT{#3}{_{#3}}%
+  }%
+  \IfValueT{#2}{\paren{#2}}%
+}
+
+% TODO: Migrate all relevant commands (balls, len, dist, expectation)
+% Also use \operatorname instead of raw \text
+
+%%%% Probability %%%%
+\RenewDocumentCommand{\Pr}{e{_} m}{%
+  \operatorname{Pr}%
+  \IfValueT{#1}{_{#1}}%
+  \left[ #2 \right]%
+}
+
+
+\def\E#1{\text{E}\left[#1\right]}
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\Cov}{Cov}
+
+\mathchardef\hyphen="2D
+
+% Algebra Operators
+\DeclareMathOperator{\Span}{span}
+\DeclareMathOperator{\Null}{null}
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator{\Hom}{Hom}
+\DeclareMathOperator{\Alt}{Alt}
+\DeclareMathOperator{\Aut}{Aut}
+\DeclareMathOperator{\Map}{Map}
+\DeclareMathOperator{\Bilin}{Bilin}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\id}{id}
+\DeclareMathOperator{\im}{im}
+
+\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}

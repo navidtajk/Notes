@@ -1,0 +1,389 @@
+\documentclass[12pt]{article}
+\usepackage[ left=0.5in,right=0.5in ]{geometry}
+\usepackage{../styles/ntalgo}
+
+\usepackage[backend=biber,style=alphabetic]{biblatex}
+\addbibresource{refs.bib}
+
+\newtheorem*{exercise}{Exercise}
+
+\begin{document}
+
+\section{The Framework}
+
+We have a directed graph $G = (V, E)$ and a length function $\len : E \to \Z$.
+The sizes of $V$ and $E$ are denoted $n$ and $m$, respectively. Let $U$ denote
+the magnitude of the most negative weight; so $\len{u, v} \geq -U$ for all
+$(u, v) \in E$. The goal is, given some $s \in V$, to compute the distance
+$\dist{s, v}$ from $s$ to all $v \in V$.
+
+\subsection{Potential Functions}
+
+A \emph{potential function} is a weighting $\varphi : V \to \R$ on the vertices
+of $G$. Potentials induce a reweighting of the graph:
+\[
+  \len{u, v}_\varphi \defeq \len{u, v} + \varphi(u) - \varphi(v).
+\]
+The reweighted graph is denoted $G_\varphi$. The length function in turn leads
+to a changed distance function
+\[
+  \dist{s, t}_\varphi \defeq \min\Set{\sum_{e \in P} \len_\varphi(e) \mid
+    \text{$P$ an $(s, t)$ walk}}.
+\]
+For any $(s, t)$ path $P$, the shifts of the potential function cancel out at
+every intermediate vertex, so
+$\len{P}_\varphi = \len{P} + \varphi(s) - \varphi(t)$, so
+$\dist{s, t}_\varphi = \dist{s, t} + \varphi(s) - \varphi(t)$. Therefore,
+solving SSSP on $G$ is equivalent to the same problem on $G_\varphi$.
+
+\paragraph{Johnson's Potential}
+
+A special class of potential functions are distance functions themselves. For
+some $s \in V$ that can reach all vertices, let $\varphi(v) = \dist{s, v}$.
+Then, for any $(u, v) \in E$,
+\[
+  \len{u, v}_\varphi = \len{u, v} + \dist{s, u} - \dist{s, v} \geq 0,
+\]
+since $\dist{s, v} \leq \dist{s, u} + \len{u, v}$. In fact $s$ can be replaced
+by any nonempty set of vertices $S$, where
+$\dist{S, v} \defeq \min_{s \in S} \dist{s, v}$. When $S = V$, $\varphi$ is the
+so-called Johnson's potential.
+
+\begin{exercise}
+  Prove that $\varphi(v) \defeq - \dist{v, s}$ makes all lengths nonnegative.
+\end{exercise}
+
+Once all edges are nonnegative, we can run Dijkstra's algorithm on the
+``neutralized'' graph to recover distances from any source. From now on, then,
+we don't need to worry about the input source $s$.
+
+\subsection{Scaling}
+
+Because $G$ has integral weights, for any two paths
+$P, P' : s \rightsquigarrow t$, if $\len{P} < \len{P'}$, then
+$\len{P} \leq \len{P'} - 1$. Potentials don't change the difference between the
+lengths of paths with common endpoints, so this remains true under any
+$\varphi$. To solve SSSP, we'd like a potential $\varphi$ for which
+$\len_\varphi \geq 0$ (indeed, this is what is done in the strongly polynomial
+regime). Suppose, however, we can only guarantee that $\len_\varphi \geq -1/n$.
+Let $\len_{\varphi, +}$ denote the length function after we round negative
+lengths up to $0$. Then, if $\len{P} < \len{P'}$, since both paths have at most
+$n - 1$ negative edges,
+\begin{align*}
+  \len{P}_{\varphi, +} <    \len{P}_\varphi + 1
+                       \leq \len{P'}_\varphi
+                       \leq \len{P'}_{\varphi, +},
+\end{align*}
+so if $P$ is a shortest path in $G_{\varphi, +}$, then it is a shortest path in
+$G_\varphi$ (and thus $G$). Note that the converse is not necessarily true: if
+two paths $P$ and $P'$ have equal lengths in $G$, then in $G_{\varphi, +}$, the
+path with less total negative weight will win.
+
+Of course, finding a $\varphi$ such that $\len_\varphi \geq -1/n$ seems almost
+as hard as finding one that induces nonnegative lengths. We can reduce to a more
+reasonable goal, though. Suppose we had a \emph{scaling algorithm} that, given a
+graph with $\len \geq -U$, finds a potential $\varphi$ such that
+$\len_\varphi \geq -U/2$. Successively applying this procedure $\log(nU)$ times
+gives us what we want.
+
+The rest of the work is in designing a near-linear scaling algorithm.
+
+\section{The Algorithm}
+
+Let's design a scaling algorithm. This is roughly based on my memory
+of~\cite{BNW25}.
+
+\subsection{SCCs Are Easy}
+
+Recall that SSSP is trivial when $G$ is a DAG, since linear-time dynamic
+programming can be used. There is a slight generalization of this: if all
+negative edges travel between strongly connected components, then the problem
+can be solved in $\bigO{m\log n}$ time. Let $C_1, \dots, C_k$ denote a
+topological ordering of these components. For $v \in C_i$, set its potential to
+$\varphi(v) = -i \cdot \text{[big number]}$. Then all negative edges $(u, v)$
+have length at least $\len{u, v} + \text{[big number]} \geq 0$.
+
+This observation also allows us to assume the input graph is strongly connected.
+If it isn't, again letting $C_i$'s denote $G$'s SCCs, we can recursively find
+potentials $\Set{\varphi_i}_{i \in [k]}$ that make each $C_i$ nonnegative.
+Stitching these together leaves the edges between SCCs as the only possible
+negative ones.
+
+\subsection{Assumptions and Notation}
+
+\def\half{\text{half}}
+
+Scale all edge weights by $2/U$ so that $\len \geq -2$. Now the goal is to find
+a $\varphi$ so that $\len_\varphi \geq -1$. Equivalently, letting $G_\half$
+denote the graph with length function
+\[
+  \len{u, v}_\half
+  = \begin{cases}
+      \len{u, v}                  & \text{if } \len{u, v} \geq 0 \\
+      \min\Set{\len{u, v} + 1, 0} & \text{otherwise}
+    \end{cases},
+\]
+we want to find a potential that makes edges in $G_\half$ nonnegative (work out
+why exactly this works). Note that for every negative $(u, v)$,
+$\len{u, v} \leq 2\len{u, v}_\half$ (hence the name)\footnote{A more natural
+idea is to simply halve the negative weights; that doesn't quite work, though.
+Exercise: pinpoint exactly where it would break.}. Since we'll mainly be working
+in this ``rounded up'' graph, from now on let $G$ and $\len$ denote $G_\half$
+and $\len_\half$, with $G_0$ and $\len_0$ denoting the original graph and length
+function. Let $G^+$ denote $G_\half$ with all negative lengths rounded up to
+$0$.
+
+For simplicity, we'll assume that $G_0$ has no negative cycles. We'll also
+assume $G$ is strongly connected (the previous subsection shows why we can do
+this).
+
+\subsection{Bounded Positivity}
+
+What does working in $G = G_\half$ buy us? Suppose we had a bound $\Delta$ on
+the diameter of $G$, so $\dist{s, t} \leq \Delta$ for all $s, t \in V$. We want
+to compute Johnson's potential $\varphi(v) \defeq \dist{V, v}$. Note that this
+potential is at most $0$ (why?), so we only need to worry about paths that have
+nonpositive length in $G$. Let $Q$ be any path between any $s$ and $t$ with
+$\len{Q} \leq 0$. Let $P$ and $N$ denote the total positive and negative length
+along $Q$, that is,
+\begin{align*}
+  P & = \sum_{\substack{e \in Q \\ \len{e} \geq 0}} \len{e} \\
+  N & = \sum_{\substack{e \in Q \\ \len{e}<0}} \len{e}.
+\end{align*}
+We know that $\len{Q} = P + N \leq 0$. What about the path's length $\len_0(Q)$
+in $G_0$? The negativity in $G$ is at most half that of $G_0$, so
+$\len_0(Q) \leq P + 2N$. We can form a cycle by connecting $t$ to $s$ with a
+path of length at most $\Delta$ (via our diameter bound; its length in $G_0$ is
+no larger) to get a cycle of length at most $P + 2N + \Delta$. Since we assumed
+$G_0$ has no negative cycles, $P + 2N + \Delta \geq 0$. Combining the two
+inequalities gives
+\[
+  0 \leq -2(P + N) + P + 2N + \Delta \Longrightarrow P \leq \Delta,
+\]
+that is, there is a bounded amount of positivity along the path. It might not be
+clear why this is useful (one may be tempted to instead bound the negativity
+with $-N \leq \Delta$), but it's important enough that I'll package it in a
+lemma.
+
+\begin{lemma}
+  \label{lemma:bounded-positivity}
+  If $G$ has diameter at most $\Delta$ and $Q$ is some nonpositive-length path
+  in $G$, then
+  \[
+    \sum_{e \in Q, \len{e} \geq 0} \len{e} \leq \Delta.
+  \]
+\end{lemma}
+
+The main use of this lemma is in bounding the number of edges cut by a low
+diameter decomposition.
+
+\subsection{Low Diameter Decompositions}
+
+The main tool the scaling algorithm uses is a fast algorithm for directed low
+diameter decompositions (LDDs). I'll assume familiarity with this concept and
+just import a lemma:
+
+\begin{lemma}
+  \label{lemma:low-diameter-decomp}
+  Given a graph $G$ with nonnegative weights and a parameter $\delta$, in
+  $\bigO{m \log^3 n}$ time, one can compute a randomized set of edges $S$ such
+  that
+  \begin{itemize}
+    \item $\Pr{e \in S} \leq \bigO{\frac{\len{e}\log^2n}{\delta}}$ for each
+          $e \in E$.
+    \item For each SCC $C$ of $G \setminus S$ and $s, t \in C$,
+          $\dist_G{s, t} \leq \delta$.
+  \end{itemize}
+\end{lemma}
+
+\subsection{Lazy BFD}
+
+This is a standard combination of Bellman-Ford and Dijkstra's algorithm
+(commonly called BFD). The algorithm interleaves Bellman-Ford relaxations with
+iterations of Dijkstra's algorithm:
+
+% badness-format skip
+\begin{centeralgo}
+  \textsc{BFD}$(G = (V, E), \len, s)$\+
+  \\  $d[v] \gets \infty$ for all $v$
+  \\  $d[s] \gets 0$
+  \\  $Q \gets $ priority queue on $d$ containing $s$
+  \\  while $Q$ isn't empty\+
+  \\    \Comment{Dijkstra's iteration}
+  \\    while $Q$ isn't empty\+
+  \\      Pull $u$ from $Q$
+  \\      for each $(u, v) \in E$ with $\len{u, v} \geq 0$\+
+  \\        if $d[u] + \len{u, v} < d[v]$\+
+  \\            $d[v] \gets d[u] + \len{u, v}$
+  \\            Insert $v$ into $Q$ (if not already there)\-\-\-
+  \\    \Comment{Relax negative edges}
+  \\    for each negative $(u, v) \in E$\+
+  \\      if $d[u] + \len{u, v} < d[v]$\+
+  \\        $d[v] \gets d[u] + \len{u, v}$
+  \\        Insert $v$ into $Q$
+\end{centeralgo}
+\begin{exercise}
+  Prove inductively that the value of $d[u]$ after the Dijkstra step in the
+  $i$th outer iteration is the minimum distance from $s$ to $u$ using at most
+  $i - 1$ negative edges.
+\end{exercise}
+Observe that an edge $(u, v)$ is relaxed in the $i$th iteration only if there is
+some $(s, u)$-path with $i - 1$ negative edges shorter than all paths with at
+most $i - 2$ negative edges. Therefore, the total number of relaxations the
+algorithm performs is bounded by
+\[
+  \bigO{\log n\sum_{(u, v) \in E} \paren{1 + \text{min \# of negative edges on a
+        shortest $(s, u)$ path}}}.
+\]
+
+\subsection{The Algorithm}
+
+Our input is $G = G_\half$ and some $\Delta \geq 0$; we are promised that every
+$s, t \in G$ has $\dist{s, t} \leq \Delta$ in the original graph (i.e.\ the
+diameter is \emph{weak}). The output is a potential function
+$\varphi : V \to \R$ such that every edge is nonnegative. Let $G^\star$ denote
+$G$ with the addition of a supersource $s^\star$ with $0$-length edges to each
+vertex. We seek to return $\dist{s^\star, \cdot} = \dist{V, \cdot} \leq 0$ as
+our potentials.
+
+We begin by cutting up the graph: with parameter $\delta = \Delta/2$, we compute
+an LDD $S$ of $G^+$ in $\bigO{m \log^3 n}$ time. Note that, by the LDD
+guarantee, no negative edge is in $S$ (it was rounded up to $0$). We next
+compute the SCCs $C_1, \dots, C_k$ of $G \setminus S$ and recursively compute
+functions $\varphi_1, \dots, \varphi_k$ that make these subgraphs nonnegative
+(that is, for each $(u, v) \in E$ where $u, v \in C_i$,
+$\len{u, v}_{\varphi_i} \geq 0$.) Next, we stitch these potentials together
+(``SCCs are easy'') to form $\varphi$. Now $\len{u, v}_\varphi \geq 0$ for every
+edge $e \notin S$.
+\begin{center}
+  [Insert figure of this]
+\end{center}
+
+Finally, put $\varphi(s^\star) = 0$.
+
+Now the only remaining negative edges are in $S$. Let $u \in V$, and consider a
+shortest $(s^\star, u)$ path in $G^\star$ (fixed before computing $S$). Let $Q$
+denote the subpath after the first edge. In $G^\star$, this path had nonpositive
+length. Since $G$ had weak diameter at most $\Delta$,
+Lemma~\ref{lemma:bounded-positivity} implies that $Q$ has total positivity at
+most $\Delta$. We can use this to bound the expected number of edges in
+$Q \cap S$.
+\begin{align*}
+  \E{\sizeof{Q \cap S}} & = \sum_{e \in Q, \len{e} \geq 0}\Pr{e \in S}                          & \text{($S$ only contains positive edges)} \\
+                        & = \bigO{\sum_{e \in Q, \len{e} \geq 0}\frac{\len{e}\log^2 n}{\delta}} & \text{(LDD guarantee)}                    \\
+                        & = \bigO{\prac{\log^2 n}{\delta}\Delta}                                & \text{(bounded positivity)}               \\
+                        & = \bigO{\log^2 n}
+\end{align*}
+
+Applying $\varphi$ doesn't change shortest paths. Therefore, along the same path
+from $s^\star$ to $u$, we'd expect to see $\bigO{\log^2 n}$ negative edges (plus
+one more for the initial edge). The expected running time of BFD from $s^\star$
+is then
+\[
+  \bigO{\log n \sum_{(u, v) \in E}\paren{1 + \text{expected \# of negative edges
+        in shortest $(s^\star, u)$-path}}}
+  = \bigO{m\log^3 n}.
+\]
+
+The outputs of BFD are the distances $\dist{ s^\star, \cdot }_\varphi$; we
+return the potentials
+$\dist{s^\star, \cdot} = \dist{s^\star, \cdot}_\varphi + \varphi$.
+
+So the nonrecursive work is $\bigO{m\log^3 n}$ for the LDD and $\bigO{m\log^3
+  n}$ for the cleanup. The diameter gets halved at each level, so there are
+$\bigO{\log \Delta}$ levels of recursion, giving a final running time of
+$\bigO{m\log^3 n \log \Delta}$ for the scaling algorithm.
+
+\paragraph{Hold on, what's the base case?}
+
+When $\Delta \leq 1$, there cannot be any negative edges in $G$. If there were,
+then since $\len{u, v} < 0$, $\len_0{u, v} < -1$, so we can form a
+$u \to v \rightsquigarrow u$ cycle of length less than $-1 + 1 = 0$, a
+contradiction. Therefore, the recursion does terminate after $\bigO{\log
+  \Delta}$ levels.
+
+\begin{nudge}
+  If no negative edge shows up in any base case, where did they go? They can't
+  be in the cut edges\dots
+\end{nudge}
+
+\begin{remark}
+  Looking online, many of these algorithms seem to maintain this parameter
+  $\kappa$, which is the maximum number of negative edges along a
+  negative-weight shortest path that minimizes the number of negative edges.
+  This seems very unnatural to me, since it implies that this parameter is what
+  we must leverage in the recursion. It doesn't need to be, and I think the
+  diameter is much more natural.
+\end{remark}
+
+\subsection{The Final Runtime}
+
+\paragraph{Turning $\log \Delta$ into $\log n$.}
+
+Recall that our scaling algorithm required an initial upper bound $\Delta$ on
+the diameter of $G = G_\half$. Where does this come from, and why can't it be
+too small? First observe that we can cap edge lengths at $2n$ in $G_0$. A
+potential that neutralizes lower weights neutralizes all higher weights as well,
+so the returned $\varphi$ still has $\len_\varphi \geq 0$. We also do not
+introduce any negative cycles in $G_0$---a simple cycle has at most $n$ negative
+edges, each with length at least $-2$, so no cycle containing an edge of length
+$2n$ can be negative. Finally, since $G$ is strongly connected, we can put
+$\Delta = 2n^2$ as an upper bound: every pair of vertices is connected by a path
+with $n - 1$ edges of length at most $2n$. The scaling algorithm's expected
+runtime is then $\bigO{m\log^4 n}$.
+
+\paragraph{Putting it all together.}
+
+To sum up, the algorithm successively applies scaling for $\bigO{\log(nU)}$
+iterations, after which it rounds up negative weights and runs Dijkstra's
+algorithm. The final (expected) runtime is
+\[
+  \bigO{m\log^4(n)\log(nU)}.
+\]
+To get a high probability guarantee, standard techniques show we just need to
+pay one more log.
+
+\section{Faster}
+
+A reader familiar with the details of directed LDD algorithms might notice the
+following. These algorithms iteratively carve out in- or out-balls from
+so-called ``light'' vertices (roughly, vertices $u$ for which
+$\outball{u, \delta}$ or $\inball{u, \delta}$ contains at most a constant
+fraction of the graph), and recursively decompose those balls. The remaining
+``core'' of ``heavy'' vertices is guaranteed to have low diameter (see the note
+on LDDs for more detail). The $\log^2 n$ rather than $\log n$ loss comes from
+there being logarithmic levels of recursion. As far as shortest paths are
+concerned, however, reducing the size of the graph by a constant factor is
+plenty of progress---we don't have to recursively decompose the smaller pieces
+(in the LDD).
+
+This means we only spend $\bigO{m\log^2 n}$ time performing the decomposition,
+with a loss factor of $\bigO{\log n}$. The scaling algorithm recurses into those
+smaller pieces with $\Delta$, while it recurses into the core with the smaller
+$\Delta/2$. Each call reduces $\sizeof{V}\Delta$ by a constant factor, so we
+still get $\bigO{\log n}$ levels of scaling recursion. The expected cleanup time
+also reduces to $\bigO{m \log^2 n}$, since we cut far fewer edges. All in all,
+the scaling algorithm takes $\bigO{m\log^3 n}$; the SSSP algorithm takes
+$\bigO{m\log^3(n)\log(nU)}$. Another easy win is to use Thorup's integer
+priority queue\footnote{The weights are not necessarily integral after scaling
+by $2/U$. The scaling was just for exposition, however: working in units of
+$U/2$ preserves integrality (after choosing $U$ to be a power of $2$.)} that
+provides amortized $\log\log n$ time per operation to get a runtime of
+\[
+  \bigO{m \log^2(n)\log\log(n)\log (nU)}.
+\]
+This is quite a nice and compact observation about merging recursions, and only
+an insane person would turn it into a 40-page paper~\cite{BCF23}.\footnote{This
+is a joke.}
+
+\begin{remark}
+  In fact, the computation that is done in this sped up algorithm is almost
+  exactly the same as in the old algorithm. In particular, edges are cut in the
+  same way, since the recursive calls with the same $\Delta$ would begin by
+  performing an LDD with $\Delta/2$, which is exactly what the old LDD did. The
+  only difference is that the old algorithm cleaned up all these edges in one
+  shot, while the new one does them in stages.
+\end{remark}
+
+\printbibliography
+\end{document}

@@ -1,0 +1,194 @@
+\documentclass[12pt]{article}
+\usepackage[ left=0.5in,right=0.5in ]{geometry}
+\usepackage{../styles/ntalgo}
+
+\begin{document}
+
+\section{The Problem and Algorithm}
+
+Unfortunately, we often don't just want to argue for the \textit{existence} of a
+good outcome, but that we can find one ourselves. A canonical example is the
+following problem:
+
+\begin{framed}
+  \textbf{Low-dependence $k$-SAT}: The input a CNF formula with $n$ variables,
+  with each clause containing exactly $k$ variables. It's guaranteed that a
+  clause shares variables with at most $d - 1$ other clauses. We want to find a
+  satisfying assignment.
+\end{framed}
+
+\def\Fix{\textsc{Fix}}
+One common way the hypothesis occurs is when each variable appears in at most
+$d/k$ clauses. We'll solve this with a recursive randomized ``whack-a-mole''
+algorithm. Starting with a random assignment, we'll repeatedly fix unsatisfied
+clauses. For each clause $C_i$, denote its dependent clauses as $C_{i, 1}$
+through $C_{i, d_i}$ where $d_i \leq d$. Let $C_{i, 0} = C_i$. Also let
+$x_{i, 1}, \dots, x_{i, k}$ denote the variables in $C_i$. The following
+algorithm fixes an unsatisfied clause while ensuring that new clauses become
+unsatisfied.
+\begin{centeralgo}
+  \Fix($C_i$):\\
+  \> pick new unifornmly random values for $x_{i, 1}$ through $x_{i, k}$ \\
+  \> while some $C_{i, j}$ is unsatisfied \\
+  \> \> $j^* \gets \min\Set{j \mid C_{i, j} \text{ is unsatisfied }}$ \\
+  \> \> \Fix($C_{i, j^*}$) \\
+\end{centeralgo}
+To find a satisfying assignment, we run \Fix over every clause that's
+unsatisfied:
+\begin{centeralgo}
+  \textsc{SatisfyingAssignment}($C_1, \dots, C_m$):\\
+  \> pick random values for $x_1, \dots, x_n$ \\
+  \> for $i \gets 1$ through $m$ \\
+  \> \> if $C_i$ is unsatisfied, \Fix$(C_i)$
+\end{centeralgo}
+It's not hard to see that if the above algorithm terminates, we have found a
+satisfying assignment. The trickiness is in proving termination. In the first
+step, each clause is satisfied with probability $(1 - 2^{-k})$, but it's not
+clear how it directly helps us.
+
+\section{Entropy Compression}
+
+Let's take a step back. Suppose we want to argue that some randomized algorithm
+succeeds with high probability. Let $R$ denote the set of random choices the
+algorithm can make; for simplicity assume that each $r \in R$ is equally likely.
+We also have a set $F \subseteq R$, which is the set of choices that lead to the
+failure. The probability of success is then $1 - \frac{|F|}{|C|}$, and arguing
+that the algorithm succeeds with high probability comes down to showing $F$ is
+small.
+
+As a simple example, consider the (contrived) problem of finding a small element
+in a huge array, where ``small'' means ``in the bottom $1/k$ fraction of
+elelemts'' for some $k$. The twist is that the array is far too large to be
+scanned through in its entirety. Instead, we sample $s = k\ln n$ elements
+uniformly at random, and return the minimum element. The set of random choices
+is the set of $s$-length lists of indices, so $|R| = n^s$. We fail iff every
+element sampled is not in the bottom $1/k$ fraction, so the set of failing
+choices is of size $(n(1 - 1/k))^s$. The probability of failure is
+\begin{align*}
+  \frac{|F|}{|R|} = \frac{(n(1 - 1/k))^s}{n^s}
+                  = (1 - 1/k)^s
+                  = ((1 - 1/k)^k)^{\ln n}
+                  < 1/n.
+\end{align*}
+
+This perspective might seem tedious, particularly when many analyses sidestep
+counting sizes of sets and instead work directly with probabilities, but becomes
+much more appealing when we take a more information-theoretic approach. Suppose
+each failure can be uniquely \emph{encoded} using some small number (say $b$) of
+bits. Then $|F|$ cannot be larger than $2^b$. If the set of random choices is
+much larger than $2^b$, we can easily argue for success.
+
+Recall the \textsc{SatisfyingAssignment} algorithm described in the last
+section. It's easier to think of it as a Monte Carlo algorithm: we set some
+threshold $\ell$, and if the total number of calls to $\Fix$ reaches $\ell$
+before the formula is satisfied, we report failure. Viewed this way, we can
+imagine all the randomness generated upfront: At the beginning, $c = n + k\ell$
+random bits are generated (the first $n$ for the initial assignment, the $k\ell$
+for the $\ell$ calls to \Fix). Our set $R$ is simply $\Set{0, 1}^{n+k\ell}$--the
+set of all bitstrings that could be initially generated.
+
+\subsection{Encoding Failures}
+
+Suppose the algorithm fails on a bitstring $b = b_1\ldots b_c$ (recall that
+these are the random choices made upfront). We want to encode this failure in a
+small number of bits. Consider the call graph of the algorithm. It's a forest,
+where each root is a top-level call to \Fix. Suppose we labeled the top-level
+nodes with the index of their clauses, and labeled each non-root node with its
+index in its parent's dependency list (that is, the $j$ in $C_{i, j}$). We claim
+that with this ordered forest, in addition to the final (failed) assignment, we
+can reconstruct the bitstring $b$.
+
+First, replace each non-root node with its global index. Next, work backwards
+from the final assignment. If \Fix$(C_i)$ was last called, then the last $k$
+bits of $b$ are the assignments to $x_{i, 1}, \dots, x_{i, k}$. Moreover, the
+previous assignment must have left $C_i$ unsatisfied, which fully determines the
+variables' previous state. We can iterate this process to step back in time,
+determining $k$ bits of $b$ at a time, until we reach the initial random
+assignment (the first $n$ bits of $b$).
+
+Since this ``call forest'' and final assignment uniquely determine the failed
+bistring, we just have to show that they can be encoded efficiently. The final
+failed assignment takes $n$ bits to encode. The interesting part is the forest
+itself. Let's focus on a single top-level call to \Fix. The tree can be encoded
+as an S-expression: any subtree is written as
+\begin{align*}
+  < \text{subroot} > ( < \text{subtree 1} > \dots).
+\end{align*}
+For example $1 (2 (3 () 4 () 5 ()) 6)$ uniquely encodes the following labeled
+tree: \Tree [.1 [.2 3 4 5 ] 6 ].
+
+In fact, we can save space by omitting each opening parenthesis:
+$1 2 3 ) 4 ) 5 )) 6)$. An alternative way to arrive at this encoding is to run a
+DFS starting from the root of the tree, writing a ``)'' every time we finish
+exploring a subtree. If the tree has $r$ nodes, how many bits do we need? We
+need $\ceil{\log_2{m}}$ bits for the label of the root node. We encode ``(''
+with a single $1$. Each non-root node label is encoded with $\ceil{\log_2 d
+} + 1$ bits by writing a $0$ followed by the index of the neighbor
+visited (remember that we don't write the \emph{global} index, instead the index
+with respect to the parent recursive call).
+
+\begin{minipage}{0.4\linewidth}
+  \Tree [.1 3 1 [ .2 0 ] [ .0 [ .2 3 1 ] ] ].
+\end{minipage}
+\begin{minipage}{0.5\linewidth}
+  \begin{tabbing}
+    % CR ntajkhkorshid: Fix the missing parens below here
+    1\qquad ( \=3 \quad ( \=) \=1 \quad ( \=) \=2 \quad ( \=0 \quad \=) \=0
+    \quad ( \=2 \quad ( \=3 \quad ( \=1 \quad \=) \=) \,) \,) \\
+    1 \>3 \>) \>1 \>) \>2 \>0 \>) \>0 \>2 \>3 \>1 \>) \,) \,) \,) \\
+    0001 \>011 \>1 \>001 \>1 \>010 \>000 \>1 \>000 \>010 \>011 \>001 \>1 \>1 1 1
+    \\
+    00010111001101000010000100110011111
+  \end{tabbing}
+\end{minipage}
+\begin{center}
+  \small The evolution of the encoding, from the tree to the S-expression to the
+  bitstring.
+\end{center}
+
+This sums up to a hair under $\ceil{\log_2{m}} + r(2 + \ceil{\log_2 d})$ bits.
+To encode the entire forest, we concatenate each tree (note that the tree
+encoding allows us to detect when we've finished reading it). Using $\ell$ total
+nodes, the forest's encoding uses less than
+\[
+  m\ceil{\log_2{m}} + \ell(2 + \ceil{\log_2{d + 1}})
+\]
+bits.
+
+We then have the following:
+\begin{lemma}
+  A failure after $\ell$ calls to \Fix can be uniquely encoded with at most
+  \[
+    n + m\ceil{\log_2{m}} + \ell(2 + \ceil{\log_2{d + 1}})
+    \leq n + m(\log_2{m} + 1) + \ell(3 + \log_2 d)
+  \]
+  bits.
+\end{lemma}
+Call the final quantity $L(\ell)$, the length of the failure encoding if we
+allow $\ell$ calls to \Fix. The term to pay attention to is the final one:
+$\ell(3 + \log_2 d)$. If $3 + \log_2 d < k \Leftrightarrow d < 2^{k-3}$, the
+length of the failure encoding grows slower than the number of random bits
+consumed: $n + \ell k$. There can be at most $L(\ell)$ failures, so the
+probability of failing is then
+\[
+  \frac{|F|}{|R|} = \frac{2^{L(\ell)}}{2^{n+\ell k}}
+                  = 2^{L(\ell)-(n+\ell k)}
+                  = 2^{m(\log_2 m+1)-\ell(k-(3+\log_2 d))}.
+\]
+For concreteness let's say $d \leq 2^{k-4}$. The probability becomes
+$2^{m(\log_2 m+1)-\ell}$, so setting $\ell$ to $O(m \log m + \log n)$ yields a
+high probability guarantee. We only need to run \Fix a near-linear number of
+times to satisfy the formula!
+
+\paragraph{Remarks.}
+
+It's important to understand what happened. We leveraged the fact that non-top
+level calls to \Fix could be encoded with much fewer marginal bits. The ability
+to work backwards was essential: no two distinct failing bitstrings could map to
+the same encoding. Contrast this with what happens with two successful
+bitstrings. They can very well map to the same encoding, since not all the
+randomness was actually consumed by the algorithm (if their first $n + 5k$ bits
+are common and the algorithm terminates in $5$ steps, then they'll produce the
+same solution in the same way).
+
+\end{document}

@@ -1,0 +1,35 @@
+# badness configuration. All keys are optional; values shown are the defaults.
+
+# Gitignore-style patterns to skip during directory discovery. `exclude` replaces
+# the built-in default set (`.git/`); `extend-exclude` adds on top of it. Both
+# apply to `format` and `lint`.
+# exclude = [".git/"]
+# extend-exclude = []
+
+[format]
+line-width = 80
+# indent-width = 2
+# item-indent = "hang"  # hang | indent | none
+# wrap = "reflow"  # reflow | stable | sentence | semantic | preserve
+                     # omit to use each file kind's default
+                     # (.tex -> reflow, .sty/.cls/.dtx/.ins -> preserve)
+# math-wrap = "auto"  # auto | preserve | single-line | break
+                        # display-math line breaking; auto derives from wrap
+                        # (preserve -> preserve, else break)
+# line-ending = "auto"  # auto | lf | crlf | native
+                          # auto keeps the endings each file was written with
+
+[lint]
+# select = ["..."]  # if set, only these rules run
+# ignore = []        # rules to disable
+# default-off rules remain available through select
+
+# Where the compiler leaves its artifacts, and which file it ran on. Read by the
+# language server only: `.aux` for label/section numbers, the PDF for forward
+# search. Paths are relative to the root document's directory (`root` itself is
+# relative to this file).
+[build]
+aux-dir = "build"
+pdf-dir = "build"
+# pdf-filename = "main.pdf"  # bare file name; defaults to the root's stem
+# root = "main.tex"          # only needed when the root is not auto-detected

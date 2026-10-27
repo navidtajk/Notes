@@ -1,0 +1,409 @@
+\documentclass[12pt]{article}
+\usepackage[ left=0.5in,right=0.5in ]{geometry}
+\usepackage{../styles/ntalgo}
+
+\usepackage[backend=biber,style=alphabetic]{biblatex}
+\addbibresource{refs.bib}
+
+\begin{document}
+
+\title{Low Diameter Decompositions}
+
+I'm writing this mainly as a review for myself. I'm trying to do everything from
+memory/rederive things, so the results here may not be optimal\dots
+
+We have a graph $G = (V, E)$ and a length function $\ell : E \to \R_{\geq 0}$.
+$d(s, t)$ denotes the length of the shortest path between $s$ and $t$,
+($\ell(P) \defeq \sum_{e \in P}\ell(e)$). When $G$ is undirected denote the ball
+of radius $r$ around $s \in V$ by
+\[
+  \ball{s, r} \defeq \Set{v \in V \mid d(s, v) \leq r}.
+\]
+When $G$ is directed, we have the in-ball and out-ball, defined respectively as
+\begin{align*}
+  \inball{s, r}  & \defeq \Set{v \in V \mid d(v, s) \leq r}  \\
+  \outball{s, r} & \defeq \Set{v \in V \mid d(s, v) \leq r}.
+\end{align*}
+
+\section{Undirected LDDs}
+
+\begin{definition}
+  We have an undirected graph $G = (V, E)$ along with a nonnegative length
+  function $\ell : E \to \R_{\geq 0}$. Let $\Delta \geq 0$ be a parameter (the
+  ``diameter''). A \emph{low diameter decomposition} of $G$ is a partition of
+  $V$ into sets $V_1, \dots, V_k$ so that
+  \begin{itemize}
+    \item For each $i$ and $s, t \in V_i$, $d(s, t) \leq \Delta$, i.e.\ the
+          components have low diameter. Note the distance is with respect to the
+          original graph; there is no guarantee on $d_{G[V_i]}(s, t)$.
+
+    \item The probability that an edge is cut is small: $\Pr{\text{$u$ and
+              $v$ are in different components}} \leq \apxO{\frac{\ell(u,v)}{\Delta}}$ for all edges $(u, v) \in E$.
+  \end{itemize}
+\end{definition}
+Note that the partition must be randomized, since the second requirement uses
+probability. It is far from obvious that such a decomposition even exists, let
+alone is efficiently computable. In fact, there is an entire zoo of algorithms
+solving this problem; we'll work through forming one below.
+
+\subsection{Cutting Out Balls}
+
+\def\Unif#1{\text{Unif}\!\paren{#1}} \def\Geom#1{\text{Geom}\!\paren{#1}}
+\def\Exp#1{\text{Exp}\!\paren{#1}}
+
+A simple type of algorithm is one that successively computes $V_i$'s, cutting
+them out of the graph and continuing until the graph is empty. More
+specifically, suppose we've determined $V_1$ through $V_{i-1}$. To form $V_i$,
+we'll choose some vertex $s \in V \setminus (V_1 \cup \cdots \cup V_{i-1})$ and
+some random radius $r$, and set $V_i = \ball{s, r}$. Here the ball is with
+respect to distances in the remaining graph.
+
+% badness-format skip
+\begin{centeralgo}
+  \textsc{GenericLDD}$(V, E, \ell, \Delta)$:\+
+  \\  $i \gets 0$
+  \\  while some vertex $s$ is not in $V_1 \cup \cdots \cup V_i$:\+
+  \\    $i \gets i + 1$
+  \\    sample $r \sim \,???$ \Comment{Some distribution...}
+  \\    $V_i \gets \ball{s, r}$ \Comment{Dijkstra's in the remaining graph}\-
+  \\  return $V_1, \dots, V_{i - 1}$
+\end{centeralgo}
+The above algorithm has the nice property of running in near-linear time, since
+we never look at an edge more than twice (why?).
+
+What distribution should we choose? We need every sampled radius to be at most
+$\Delta/2$ with high probability, since then it's clear that every component has
+diameter at most $\Delta$ (In fact, via this construction, the diameter is with
+respect to $G[V_i]$ itself, i.e.\ it's \emph{strong}).
+
+One natural option is to sample $r$ from $\Unif{0, \Delta/2}$, since that
+guarantees that $r \leq \Delta/2$. What is the probability that some edge
+$(u, v)$ is cut? Consider the first $V_i$ that contains any endpoint of the
+edge; WLOG suppose $u \in V_i$. Let $s_i$ denote the center of the ball.
+Conditioned on $u \in V_i$, $r \sim \Unif{d(s, u), \Delta}$. We know that
+$d(s, v) \leq d(s, u) + \ell(u, v)$, but the proof starts to fall apart here.
+What if $d(s, v) = d(s, u) + \ell(u, v) \geq \Delta/2$? The edge will always be
+cut (assuming $u \in V_i$)!~\footnote{TODO: Show CKR-style scheme.}
+
+Somehow, we'd want the distribution to play nice once we condition on
+$u \in V_i$. An obvious candidate is a memoryless distribution, so let's try
+sampling from $\Exp{\lambda}$ for some $\lambda$. Recall the pdf of this
+distribution is $\lambda e^{-\lambda x}$, and so the probability that a sample
+is below some threshold is
+\begin{align*}
+  \Pr_{X \sim \Exp{\lambda}}{X \leq t} = \int_0^t \lambda e^{-\lambda x}
+                                       = \brack{-e^{-\lambda x}}_0^t
+                                       = 1 - e^{-\lambda t}
+\end{align*}
+Now let's run through the argument with $(u, v)$ again. Conditioned on
+$u \in V_i$, the chance that $v \notin V_i$ is at most the chance that
+$r \leq d(s, u) + \ell(u, v)$. Since $r \geq d(s, u)$ and the distribution is
+memoryless, this happens with probability
+\[
+  1 - e^{-\ell(u, v)\lambda} \leq \ell(u, v)\lambda,
+\]
+where the inequality is from a rearrangement of $1 - x \leq e^{-x}$. The
+question now is how small can we make $\lambda$? We need $r \leq \Delta/2$ with
+high probability, so setting $\lambda = \frac{2c\ln n}{\Delta}$ gives
+\begin{align*}
+  \Pr{r < \Delta/2} = 1 - e^{\frac{\Delta}{2}\frac{2c\ln n}{\Delta}}
+                    = 1 - e^{-c \ln n}
+                    = 1 - n^{-c}.
+\end{align*}
+We then have a cutting probability for $(u, v)$ of at most
+\[
+  \ell(u, v)\lambda = \bigO{\frac{\ell(u, v)\log n}{\Delta}}
+                    = \apxO{\frac{\ell(u, v)}{\Delta}}.
+\]
+
+\begin{remark}
+  Nothing here is special to graphs. The exact same algorithm works with any
+  metric space (or even semi-metric space). The more general guarantee is
+  \[
+    \Pr{\text{$u$ and $v$ are in separate components}} \leq \bigO{\frac{d(u,
+          v)\log n}{\Delta}}.
+  \]
+\end{remark}
+
+\begin{remark}
+  Consider the cycle graph with unit lengths and any $\Delta$. Any LDD of $C_n$
+  must have components of length at least $\Delta$, so at least every $\Delta$th
+  edge must be cut. Hence, if the probability that any edge is cut is at most
+  $p$,
+  \[
+    n/\Delta \leq            \E{\text{\# of edges cut}}
+             \leq            np
+             \Longrightarrow p
+             \geq            1/\Delta.
+  \]
+  This shows that we can't do better than $\ell(u, v)/\Delta$ in general. The
+  $\log n$ factor is called the \emph{loss} of the LDD, and more complicated
+  proofs show that it must be $\bigOmega{\log n}$.
+\end{remark}
+
+\section{Directed LDDs}
+
+(This is based on my memory of~\cite{BNW25}.)
+
+There is a directed analogue of LDDs, but it's less elegant. It helps to reframe
+the goal of undirected LDDs as ``remove edges so that all connected components
+have low diameter'' instead of ``partition the vertices into low diameter
+pieces''. The directed analogue would then be ``remove edges so that all
+\emph{strong} connected components have low diameter''.
+
+From now on, for a set of edges $S$, let $G \setminus S$ denote the graph after
+the removal of those edges.
+\begin{definition}
+  Let $G = (V, E)$ be a directed graph, $\ell : E \to \R_{\geq 0}$ a length
+  function, and $\Delta$ a parameter. A \emph{directed low diameter
+  decomposition} of $G$ is a (random) set $S \subseteq E$ such that
+  \begin{itemize}
+    \item For every SCC $C$ of $G \setminus S$ and $s, t \in C$,
+          $d_G(s, t) \leq \Delta$.
+    \item For every $(u, v) \in E$,
+          $\Pr{(u, v) \in S} \leq \apxO{\frac{\ell(u, v)}{\Delta}}$.
+  \end{itemize}
+\end{definition}
+
+The trickiness with algorithms here is that we lose a lot of the nice symmetry
+we had before. In particular, the out-ball $\outball{s, r}$ for
+$r \leq \Delta/2$ need not have diameter at most $\Delta$ (why?).
+
+Let's recast the previous undirected LDD algorithm in the ``cutting edges''
+lens. We computed $\ball{s, r}$, and then added the edges in $\cut{\ball{s, r}}$
+to our cut set. After this, we immediately knew that no connected component of
+$G$ contained vertices from both the ball and its complement. Something similar
+occurs in the directed case. For any $U \subseteq V$, if the edges in
+$\outcut{U}$ (or $\incut{U}$) are among our cut edges, then no SCC of the
+remaining graph can contain vertices from both $U$ and $V \setminus U$. The
+natural candidate for $U$ is a ball, but we lose the undirected symmetry that
+guaranteed $u, v \in \ball{s, r} \Rightarrow d(u, v) \leq 2r$. To fix this,
+we'll recursively decompose the ball as well.
+
+% badness-format skip
+\begin{centeralgo}
+  \textsc{DirectedLDDAttempt}$(G = (V, E, \ell), \Delta)$:\+
+  \\  if $d(s, t) \leq \Delta$ for every $s, t \in V$: \Comment{APSP}\+
+  \\    return $\emptyset$\-
+  \\  $i \gets 0$
+  \\  while some vertex $s$ is not in $V_1 \cup \cdots \cup V_i$:\+
+  \\    $i \gets i + 1$
+  \\    sample $r \sim \,???$ \Comment{Some distribution...}
+  \\    $V_i \gets \ball{s, r}$ \Comment{Dijkstra's in the remaining graph}
+  \\     \Comment{After removing $S_0$, no $u \in V_i$ is strongly connected to a $v \notin V_i$}
+  \\    $S_0 \gets S_0 \cup \outcut{V_i}$
+  \\    $S_1 \gets S_1 \cup \textsc{DirectedLDDAttempt}(G[V_i], \Delta)$\-
+  \\  return $S_0 \cup S_1$
+\end{centeralgo}
+
+Don't worry about optimizing runtime for the moment (running APSP makes this
+$\bigOmega{mn}$ anyhow). If we pick the exponential distribution for $r$ like
+before, it's not hard to see that the analysis essentially goes through the same
+(exercise): each $(u, v) \in E$ is in $S_0$ with probability at most
+$\apxO{\ell(u, v)/\Delta}$. By induction and a union bound, $(u, v) \in S$ with
+probability $\apxO{q\ell(u, v)/\Delta}$, where $q$ is the number of calls that
+$(u, v)$ is in. If each $V_i$ is at most a constant factor of $V$, then we have
+$q = O(\log n) = \apxO{1}$.
+
+Of course, we might get unlucky in our choice of $s$---if $s$ reaches more than
+a constant factor of the graph, the recursion might get strung along for
+$\poly(n)$ calls. Let's pick some $\beta < 1$ and say we want
+$\sizeof{V_i} \leq \beta|V|$ for all $i$. If we can find an $s$ for which we're
+confident that $\outball{s, r}$ is small, then we can make progress. We can pick
+the distribution so that $r \leq \Delta/2$ with high probability, it suffices to
+find an $s$ for which $\sizeof{\outball{s, \Delta/2}} \leq \beta \sizeof{V}$.
+Failing this, we can find an $s$ for which the in-ball $\inball{s, \Delta/2}$
+has small size--in this case we'd remove the in-cut rather than the out-cut.
+
+For ease of notation, let $V_{<i} = \bigcup_{j<i}V_j$.
+% badness-format skip
+\begin{centeralgo}
+  \textsc{DirectedLDD}$(G = (V, E, \ell), \Delta)$:\+
+  \\  $i \gets 0, S_0 \gets \emptyset, S_1 \gets \emptyset$
+  \\  repeat:\+
+  \\    $i \gets i + 1$
+  \\    sample $r \sim \Exp{\bigO{\log n / \Delta}}$
+  \\    if there's some $s \notin V_{<i}$ with $\sizeof{ \outball{s, \Delta/2} } \leq
+  \beta\sizeof{V}$:\+
+  \\      $V_i \gets \outball{s, r} \setminus V_{< i}$
+  \\      $S_0 \gets \outcut{V_i}$\-
+  \\    else if there's some $s$ with $\sizeof{ \inball{s, \Delta/2} } \leq
+  \beta\sizeof{V}$:\+
+  \\      $V_i \gets \inball{s, r} \setminus V_{< i}$
+  \\      $S_0 \gets \incut{V_i}$\-
+  \\  else:\+
+  \\    \Comment{Hope for the best\dots}
+  \\    return $S_0 \cup S_1$\-
+  \\  $S_1 \gets S_1 \cup \textsc{DirectedLDD}(G[V_i])$
+\end{centeralgo}
+
+It's clear that $\Pr{(u, v) \in S} = \bigO{\frac{\ell(u, v)\log^2 n}{\Delta}}$
+with high probability, since $r \leq \Delta/2$ whp and so
+$\sizeof{V_i} \leq \beta|V|$ for all $V_i$, meaning there are $\bigO{\log n}$
+levels of recursion.
+
+In an invocation, let $V_\text{rem}$ denote the vertices not in any $V_i$.
+Taking stock, the algorithm partitions $V$ into $V_1, \dots, V_i, V_\text{rem}$;
+these sets are guaranteed to be in distinct SCCs of $G \setminus S$ via $S_0$.
+It recurses on $V_1$ through $V_i$; proving correctness comes down to proving
+that $V_\text{rem}$ has (weak) diameter at most $\Delta$. Note that any
+$v \in V_\text{rem}$ must have
+$\sizeof{\outball{v, \Delta/2}}, \sizeof{\inball{v, \Delta/2}} \geq \beta\sizeof{V}$.
+But if we choose any $\beta > 1/2$, for any $u, v \in V_\text{rem}$, the
+out-ball of $u$ and the in-ball of $V$ must intersect! This implies that
+$d(u, v) \leq \Delta/2 + \Delta/2 = \Delta$, so we indeed have our low-diameter
+guarantee.
+
+\paragraph{Running time.}
+
+This algorithm takes $\apxO{mn}$ time. Each call can be implemented via $n$
+calls to Dijkstra's algorithm; extracting balls once we know all distances is
+trivial. One might wonder if we can achieve near-linear running time like we did
+in undirected LDDs. The trickiness is in finding the ``in-heavy'' and
+``out-heavy'' vertices which reach over $\beta|V|$ others--we turn to estimation
+to efficiently detect these.
+
+{\color{gray}
+  \paragraph{Estimation.}
+
+  (This is not interesting). The goal is to find which $v \in V$ have
+  $\outball{v, \Delta/2} \geq \beta n$. If we can do this, we can reverse the
+  graph to
+  find the vertices with large in-balls. If $v$ reaches at least a $\beta$
+  fraction of $V$ within $\Delta$, we'd expect it to reach some vertex in a
+  random
+  sample of $1/\beta$ vertices a constant fraction of the time. In particular,
+  \begin{align*}
+    \Pr{\text{$v$ reaches some vertex in $1/\beta$ ones}}
+    =    1 - \Pr{\text{$v$ reaches none in the sample}}
+    \geq 1 - (1 - \beta)^{1/\beta}
+    \geq 1 - 1/e.
+  \end{align*}
+  Conversely, if $v$ reaches, say, at most a $2\beta/3$ fraction, running
+  through
+  the calculations gives a hitting probability of at most
+  \[
+    1 - (1 - 2\beta/3)^\beta \geq 1 - e^{-2/3}.
+  \]
+  Now we can simple run $O(\log n)$ experiments: in each one, we randomly
+  sample
+  $1/\beta$ vertices into $S$ and compute $d(\cdot, S)$ using $G^R$ to find
+  $R_S = \Set{v \in V \mid d(v, S) \leq \Delta/2}$. Then, for each vertex, if
+  it's
+  in $R_S$ for at least a $p$ portion of the samples, we mark it as heavy.
+  Here,
+  $p$ is just some threshold between $1 - e^{-2/3}$ and $1 - e^{-1}$. Chernoff
+  bounds imply that any vertex not marked as heavy reaches less than $\beta$
+  of
+  the graph, while vertices that are marked as heavy reach at least $2\beta/3$
+  of
+  the graph. Choosing $\beta = 4/5$ gives $2\beta/3 = 8/15 > 1/2$, so the
+  pigeonhole argument for heavy vertices still applies.
+}
+
+\paragraph{Making it fast.}
+
+We can figure out which vertices are (in/out)-heavy in $\bigO{m\log^2n}$ time
+(via $\bigO{\log n}$ SSSP computations). This happens at the beginning of all
+invocations of the recursive directed LDD algorithm. When cutting in or
+out-balls $\inoutball{s, r}$, we run Dijkstra's algorithm only in the remaining
+part of the graph. This ensures that we never repeatedly process edges, and the
+resulting balls are still subsets of $\inoutball{s, \Delta/2}$ (with respect to
+$G$'s distance) with high probability. All in all, at a recursive level we spend
+$\bigO{m\log^2n}$ time over $\bigO{ \log n }$ levels, giving a runtime of
+$\bigO{m\log^3 n}$.
+
+Packaging this up as a lemma, we have the following.
+\begin{lemma}
+  Given $G = (V, E)$ and $\ell : E \to R_{\geq 0}$, we can compute a directed
+  LDD $S$ of $G$ such that the probability of an edge $(u, v)$ being cut is
+  $\bigO{ \frac{\ell(u, v)\log^2n}{\Delta} + \frac{1}{ n^c } }$. With high
+  probability this takes $\bigO{m\log^3 n}$ time.
+\end{lemma}
+The $\bigO{\frac{1}{n^c}}$ is there to account for the failure probability of
+the classification, in which case we can just return every edge.
+
+\subsection{Later Improvements}
+
+The above algorithm is roughly what the first near-linear weakly-polynomial SSSP
+algorithm used~\cite{BNW25}. I do want to show a (from a certain perspective)
+simplification of~\cite{Li25}, which, among other improvements, showed a nice
+way to deal with heavy vertices without relying on pigeonhole arguments.
+
+For some threshold $\beta < 1$ and $\Delta$, call a vertex $u$ \emph{out-heavy}
+(resp. \emph{in-heavy}) if
+$\sizeof{ \outball{u, \Delta/8} } \geq \beta \sizeof{V}$ (resp.
+$\sizeof{\inball{u, \Delta/8}} \geq \beta \sizeof{V}$). Note that we have
+tightened the threshold radius to $\Delta/8$ for reasons that will be apparent
+soon. The analysis for light vertices survives.
+
+Suppose there were no out-heavy vertices. Then we can repeatedly cut the
+out-boundaries of out-balls and rest assured that subproblems go down by a
+constant factor. Similarly, if there are no in-heavy vertices, then we can just
+cut in-boundaries of in-balls. It turns out that avoiding mixed orientations of
+the balls opens the door to better algorithms~\footnote{I don't fully see why
+yet\dots} (see~\cite{Li25} for details; also see CKR's multiway cut rounding).
+The challenge, then, is what to do in the case when there are both in and
+out-heavy vertices. Let $S^-$ and $S^+$ denote the in and out heavy vertices
+respectively.
+
+\paragraph{Case 1.}
+
+Suppose $d(S^-, S^+) > \Delta/2$. We \emph{uniformly} sample
+$r \in [0, \Delta/2]$ and compute $U = B^+_r(S^-)$. Remove the edges in
+$\outcut{U}$. A given edge $(u, v)$ is cut when
+\[
+  r \in [d(S^-, u), d(S^-, v)] \subseteq [d(S^-, u), d(S^-, u) + \ell(u, v)],
+\]
+which happens with probability at most $2\ell(u, v)/\Delta$. Note that
+$U \supseteq S^-$ and $V \setminus U \supseteq S^+$, so no recursive call both
+in and out heavy vertices. The recursive calls on are guaranteed to reduce the
+problem by a constant factor\footnote{I'm being a little vague here, since this
+is meant to be a general preprocessing step, but this is true for any algorithm
+that cuts boundaries of balls. Furthermore, the constant factor reduction is
+with respect to the size of the graph before this step, not the graph passed to
+the calls.}, so this cut probability occurs at most $\bigO{\log n}$ times.
+
+\paragraph{Case 2.}
+
+Now suppose there is some $s^- \in S^-, s^+ \in S^+$ such that
+$d(s^-, s^+) \leq \Delta/2$. Now sample $r$ uniformly in $[\Delta/8, \Delta/4]$
+and compute $U^- = B^-_r(s^-)$ and $U^+ = B^+_r(s^+)$. Remove the edges in
+$\incut{U^-} \cup \outcut{U^+}$. This splits $V$ into four regions: letting
+$U = U^- \cup U^+$, we have
+\begin{itemize}
+  \item The outside $V \setminus U$
+  \item The intersection $U^- \cap U_+$
+  \item $U^+ \setminus U^-$
+  \item $U^- \setminus U^+$
+\end{itemize}
+No SCC of $G \setminus (\incut{U^-} \cup \outcut{U^+})$ can contain vertices
+from more than one of these regions (why?).
+\begin{center}
+  [Venn diagram with caption: No cycle can cross any of the boundaries.]
+\end{center}
+
+Exercise: every edge $(u, v)$ is cut with probability $\bigO{\ell(u, v)/\Delta}$
+(the proof is very similar to case 1).
+
+Moreover, every region except for $U^- \cap U^+$ is at most a constant factor of
+the graph: each of them completely avoids either $U^-$ or $U^+$, which have
+sizes of at least
+$\sizeof{\inball{s^-, \Delta/8}}, \sizeof{\outball{s^+, \Delta/8}} \geq \beta\sizeof{V}$.
+We can thus comfortably recurse on these components without blowing up depth.
+
+Finally, there is no need to recurse on the intersection, since for any
+$u, v \in U^- \cap U^+$,
+\[
+  d(u, v) \leq d(u, s^-) + d(s^-, s^+) + d(s^+, v)
+          \leq \Delta/4 + \Delta/2 + \Delta/4
+          =    \Delta.
+\]
+
+\begin{nudge}
+  Think about why uniform distances worked here but not in our earlier LDD
+  approaches.
+\end{nudge}
+
+\printbibliography
+\end{document}
