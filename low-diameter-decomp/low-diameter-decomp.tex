@@ -8,9 +8,14 @@
 \begin{document}
 
 \title{Low Diameter Decompositions}
+\author{Navid Tajkhorshid}
+
+\maketitle
 
 I'm writing this mainly as a review for myself. I'm trying to do everything from
 memory/rederive things, so the results here may not be optimal\dots
+
+\paragraph{Notation.}
 
 We have a graph $G = (V, E)$ and a length function $\ell : E \to \R_{\geq 0}$.
 $d(s, t)$ denotes the length of the shortest path between $s$ and $t$,
@@ -48,8 +53,9 @@ solving this problem; we'll work through forming one below.
 
 \subsection{Cutting Out Balls}
 
-\def\Unif#1{\text{Unif}\!\paren{#1}} \def\Geom#1{\text{Geom}\!\paren{#1}}
-\def\Exp#1{\text{Exp}\!\paren{#1}}
+\def\Unif#1{\operatorname{Unif}\paren{#1}}
+\def\Geom#1{\operatorname{Geom}\paren{#1}}
+\def\Exp#1{\operatorname{Exp}\paren{#1}}
 
 A simple type of algorithm is one that successively computes $V_i$'s, cutting
 them out of the graph and continuing until the graph is empty. More
@@ -83,7 +89,8 @@ edge; WLOG suppose $u \in V_i$. Let $s_i$ denote the center of the ball.
 Conditioned on $u \in V_i$, $r \sim \Unif{d(s, u), \Delta}$. We know that
 $d(s, v) \leq d(s, u) + \ell(u, v)$, but the proof starts to fall apart here.
 What if $d(s, v) = d(s, u) + \ell(u, v) \geq \Delta/2$? The edge will always be
-cut (assuming $u \in V_i$)!~\footnote{TODO: Show CKR-style scheme.}
+cut (assuming $u \in V_i$)!~\footnote{TODO: Show CKR-style scheme that fixes
+this.}
 
 Somehow, we'd want the distribution to play nice once we condition on
 $u \in V_i$. An obvious candidate is a memoryless distribution, so let's try

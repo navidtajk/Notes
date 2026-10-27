@@ -8,6 +8,10 @@
 \newtheorem*{exercise}{Exercise}
 
 \begin{document}
+\title{Weakly Polynomial SSSP}
+\author{Navid Tajkhorshid}
+
+\maketitle
 
 \section{The Framework}
 
@@ -259,7 +263,8 @@ edge $e \notin S$.
   [Insert figure of this]
 \end{center}
 
-Finally, put $\varphi(s^\star) = 0$.
+Finally, put $\varphi(s^\star) = \max\Set{\varphi(v) \mid v \in V}$ so that all
+edges leaving it are nonnegative.
 
 Now the only remaining negative edges are in $S$. Let $u \in V$, and consider a
 shortest $(s^\star, u)$ path in $G^\star$ (fixed before computing $S$). Let $Q$
@@ -276,9 +281,8 @@ $Q \cap S$.
 \end{align*}
 
 Applying $\varphi$ doesn't change shortest paths. Therefore, along the same path
-from $s^\star$ to $u$, we'd expect to see $\bigO{\log^2 n}$ negative edges (plus
-one more for the initial edge). The expected running time of BFD from $s^\star$
-is then
+from $s^\star$ to $u$, we'd expect to see $\bigO{\log^2 n}$ negative edges. The
+expected running time of BFD from $s^\star$ is then
 \[
   \bigO{\log n \sum_{(u, v) \in E}\paren{1 + \text{expected \# of negative edges
         in shortest $(s^\star, u)$-path}}}
@@ -287,7 +291,7 @@ is then
 
 The outputs of BFD are the distances $\dist{ s^\star, \cdot }_\varphi$; we
 return the potentials
-$\dist{s^\star, \cdot} = \dist{s^\star, \cdot}_\varphi + \varphi$.
+$\dist{s^\star, v} = \dist{s^\star, v}_\varphi + \varphi(v) - \varphi(s^\star)$.
 
 So the nonrecursive work is $\bigO{m\log^3 n}$ for the LDD and $\bigO{m\log^3
   n}$ for the cleanup. The diameter gets halved at each level, so there are

@@ -1,8 +1,17 @@
-\documentclass[12pt]{article}
+\documentclass[12 pt]{article}
 \usepackage[ left=0.5in,right=0.5in ]{geometry}
 \usepackage{../styles/ntalgo}
+\usepackage[backend=biber,style=alphabetic]{biblatex}
+\addbibresource{refs.bib}
 
 \begin{document}
+
+\title{Notes on Max Flow without IPM}
+\author{Navid Tajkhorshid}
+
+\maketitle
+
+These are notes on the recent work of Li and Wice~\cite{LW26}
 
 \section{Setup}
 
@@ -303,5 +312,7 @@ we're left with a constant decrease in $\mathcal{E}$ in each step.
 
 \subsection{An Approximate, Out-of-date Oracle}
 
-The rest of this is really an implementation detail.
+The rest of this is really an implementation detail. (TODO)
+
+\printbibliography
 \end{document}
