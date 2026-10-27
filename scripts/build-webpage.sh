@@ -37,6 +37,7 @@ head_html="<!DOCTYPE html>
         }
 
         .plaintext-link {
+            font-size: 1.7rem;
             text-decoration: none;
             color: #000000;
         }
