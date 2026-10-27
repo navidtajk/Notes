@@ -1,7 +1,7 @@
 \documentclass[12pt]{article}
 \usepackage[ left=0.5in,right=0.5in ]{geometry}
 \usepackage{../styles/ntalgo}
-\usepackage[backend=biber]{biblatex}
+\usepackage[backend=biber,style=alphabetic]{biblatex}
 \addbibresource{refs.bib}
 
 \begin{document}
@@ -199,5 +199,7 @@ bitstrings. They can very well map to the same encoding, since not all the
 randomness was actually consumed by the algorithm (if their first $n + 5k$ bits
 are common and the algorithm terminates in $5$ steps, then they'll produce the
 same solution in the same way).
+
+\printbibliography
 
 \end{document}
